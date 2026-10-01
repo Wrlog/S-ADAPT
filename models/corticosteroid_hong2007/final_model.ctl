@@ -1,0 +1,59 @@
+$PROJECT Methylprednisolone: cortisol suppression, lymphocyte trafficking and ex vivo proliferation
+
+$DIFFEQ_DIF
+
+CMPL = X(1)/VMPL
+IF (CMPL.LT.0) CMPL = 0
+
+KINA = (KCOUT*FA1 + FB1*OMEG)*COS(OMEG*T)
+KINB = (KCOUT*FB1 - FA1*OMEG)*SIN(OMEG*T)
+KINC = KCOUT*FA0 + KINA + KINB
+INHC = CMPL/(IC50MC + CMPL)
+
+CEQ = CMPL*IC50CL/IC50ML + X(2)
+INHL = CEQ/(IC50CL + CEQ)
+
+XP(1) = -CLMPL*CMPL
+XP(2) = KINC*(1 - INHC) - KCOUT*X(2)
+XP(3) = KINL*(1 - INHL) - KBE*X(3)
+XP(4) = KT*(CMPL - X(4))
+
+
+$OUTPUT_GLB
+
+FA0 = 80
+FA1 = 53.13
+FB1 = -14.23
+OMEG = 6.283185307/24
+DILF = 0.05
+CEN0 = FA0 + FA1
+LYM0 = KINL/KBE*IC50CL/(IC50CL + CEN0)
+
+
+$OUTPUT_ICS
+
+X(2) = X(2) + CEN0
+X(3) = X(3) + LYM0
+
+
+$OUTPUT_EQN
+
+if (X(1).LT.0) X(1) = 0
+if (X(4).LT.0) X(4) = 0
+
+CADF = X(4)*DILF
+Y(1) = X(1)/VMPL
+Y(2) = X(2)
+Y(3) = X(3)
+Y(4) = 100*X(3)/LYM0*IC50MW/(IC50MW + CADF)
+
+
+$VARMOD_EQN
+
+V(1) = (SDPK*Y(1))*(SDPK*Y(1))
+V(2) = (SDCORT*Y(2))*(SDCORT*Y(2))
+V(3) = (SDLYM*Y(3))*(SDLYM*Y(3))
+V(4) = (SDWBLP*Y(4))*(SDWBLP*Y(4))
+
+
+$POPMOD_EQN

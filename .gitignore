@@ -1,0 +1,30 @@
+# R
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+*.Rproj
+
+# compiled models (the reference engine builds in a per-user cache)
+*.so
+*.o
+*.dll
+mrgsolve-*/
+
+# S-ADAPT and SADAPT-TRAN working files, written next to the control stream
+models/*/*.for
+models/*/*.exe
+models/*/*.obj
+models/*/run.txt
+models/*/finish.txt
+models/*/beo.txt
+models/*/*.s00
+models/*/*.log
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# stray R graphics output
+Rplots.pdf

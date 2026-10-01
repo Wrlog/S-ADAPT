@@ -1,0 +1,37 @@
+$PROJECT Tisagenlecleucel cellular kinetics: expansion, contraction and persistence
+
+$DIFFEQ_DIF
+
+XP(1) = 1
+
+
+$OUTPUT_GLB
+
+RZERO = CPEAK/FOLDX
+RHO = LOG(FOLDX)/TPEAK
+
+
+$OUTPUT_ICS
+
+
+$OUTPUT_EQN
+
+TDAY = X(1)
+IF (TDAY.LT.TPEAK) THEN
+   CART = RZERO*EXP(RHO*TDAY)
+ELSE
+   TAFT = TDAY - TPEAK
+   CEFF = (1 - FPERS)*CPEAK*EXP(-KALPHA*TAFT)
+   CPER = FPERS*CPEAK*EXP(-KBETA*TAFT)
+   CART = CEFF + CPER
+ENDIF
+
+Y(1) = LOG(CART)
+
+
+$VARMOD_EQN
+
+V(1) = SDLN*SDLN
+
+
+$POPMOD_EQN
