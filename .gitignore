@@ -28,3 +28,6 @@ desktop.ini
 
 # stray R graphics output
 Rplots.pdf
+
+# dashboard build output (produced in CI)
+site/

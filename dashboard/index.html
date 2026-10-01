@@ -1,0 +1,713 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>S-ADAPT population PK/PD models</title>
+<meta name="description" content="Six pharmacokinetic/pharmacodynamic models written for S-ADAPT with SADAPT-TRAN, each fitted to a simulated study by Monte Carlo parametric expectation maximisation: parameter recovery, individual fits, convergence and the model files.">
+<style>
+  :root {
+    --ink: #16181d; --ink-2: #454951; --ink-3: #6b7078; --rule: #e4e6ea; --grid: #eceef1;
+    --surface: #ffffff; --sunken: #f7f8fa; --accent: #2a78d6; --accent-ink: #1d5fae; --tag: #edf3fc;
+    --band: #eef1f5; --s1: #2a78d6; --s2: #eb6834; --note: #fff8e6; --note-rule: #f0dca8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ink: #f2f3f5; --ink-2: #c9ccd2; --ink-3: #9aa0a8; --rule: #2c3038; --grid: #262a31;
+      --surface: #1b1d22; --sunken: #121417; --accent: #5b9be6; --accent-ink: #8ab8ef; --tag: #1f2a3a;
+      --band: #23272e; --s1: #3987e5; --s2: #d95926; --note: #2a2618; --note-rule: #4a4020;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--sunken); color: var(--ink-2);
+         font: 15px/1.55 ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 1180px; margin: 0 auto; padding: 40px 16px 64px; }
+  h1 { color: var(--ink); font-size: 28px; letter-spacing: -0.02em; margin: 0 0 8px; }
+  h2 { color: var(--ink); font-size: 20px; letter-spacing: -0.01em; margin: 0 0 4px; }
+  h3 { color: var(--ink); font-size: 15px; margin: 0 0 2px; }
+  p { margin: 0 0 12px; }
+  a { color: var(--accent-ink); }
+  .lede { max-width: 820px; }
+  .note { background: var(--note); border: 1px solid var(--note-rule); border-radius: 10px; padding: 12px 16px;
+          max-width: 820px; margin: 16px 0 28px; color: var(--ink-2); }
+  .note strong { color: var(--ink); }
+  section { margin-top: 28px; }
+  .card { background: var(--surface); border: 1px solid var(--rule); border-radius: 12px; padding: 20px; }
+  .sub { color: var(--ink-3); font-size: 13.5px; margin: 0 0 14px; max-width: 860px; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin: 0 0 4px; }
+  .tile { background: var(--surface); border: 1px solid var(--rule); border-radius: 12px; padding: 14px 16px; }
+  .tile .label { color: var(--ink-3); font-size: 13px; }
+  .tile .value { color: var(--ink); font-size: 26px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.25; }
+  .tile .value small { font-size: 14px; font-weight: 500; color: var(--ink-3); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(310px, 1fr)); gap: 18px 22px; }
+  .grid.narrow { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+  .panel h3 { font-weight: 600; font-size: 13.5px; }
+  .panel .link { font-size: 12.5px; background: none; border: 0; padding: 0; color: var(--accent-ink); cursor: pointer;
+                 text-decoration: underline; font: inherit; font-size: 12.5px; }
+  .chart { width: 100%; }
+  .chart svg { display: block; width: 100%; outline: none; }
+  .chart svg:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+  svg text { fill: var(--ink-3); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+  svg .axis-title { fill: var(--ink-2); font-size: 12px; }
+  svg .row-label { fill: var(--ink-2); font-size: 12px; }
+  svg .gridline { stroke: var(--grid); stroke-width: 1; }
+  svg .baseline { stroke: var(--rule); stroke-width: 1; }
+  svg .band { fill: var(--band); }
+  svg .ref { stroke: var(--ink-3); stroke-width: 1; }
+  svg .cross { stroke: var(--ink-3); stroke-width: 1; }
+  svg .line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  svg .s1 { stroke: var(--s1); } svg .s2 { stroke: var(--s2); }
+  svg .dot { stroke: var(--surface); stroke-width: 2; }
+  svg .d-s1 { fill: var(--s1); } svg .d-s2 { fill: var(--s2); } svg .d-ink { fill: var(--ink); }
+  svg .faint { opacity: 0.5; stroke-width: 1; }
+  svg .hit { fill: transparent; }
+  svg .lift { fill: none; stroke: var(--ink); stroke-width: 1.5; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 2px 0 12px; font-size: 13px; color: var(--ink-2); }
+  .legend span { display: inline-flex; align-items: center; gap: 7px; }
+  .key-line { width: 18px; height: 0; border-top: 2px solid; border-radius: 2px; }
+  .key-dot { width: 9px; height: 9px; border-radius: 50%; }
+  .k-s1 { border-color: var(--s1); background: var(--s1); } .k-s2 { border-color: var(--s2); background: var(--s2); }
+  .k-ink { background: var(--ink); } .k-ref { border-color: var(--ink-3); border-top-width: 1px; }
+  .k-band { width: 14px; height: 10px; background: var(--band); border: 1px solid var(--rule); border-radius: 2px; }
+  #tip { position: fixed; z-index: 20; pointer-events: none; background: var(--surface); color: var(--ink-2);
+         border: 1px solid var(--rule); border-radius: 8px; padding: 8px 10px; font-size: 12.5px; min-width: 150px;
+         max-width: 300px; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.14); display: none; }
+  #tip .head { color: var(--ink-3); margin-bottom: 4px; }
+  #tip .row { display: flex; align-items: center; gap: 7px; justify-content: space-between; }
+  #tip .row .name { display: inline-flex; align-items: center; gap: 6px; }
+  #tip .row strong { color: var(--ink); font-variant-numeric: tabular-nums; }
+  .filters { position: sticky; top: 0; z-index: 10; background: var(--sunken); padding: 10px 0; margin-top: 36px;
+             display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; border-bottom: 1px solid var(--rule); }
+  .tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tabs button { font: inherit; font-size: 14px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--rule);
+                 background: var(--surface); color: var(--ink-2); cursor: pointer; }
+  .tabs button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .tabs button:focus-visible, .step:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .subject { display: flex; align-items: center; gap: 6px; font-size: 14px; }
+  select { font: inherit; font-size: 14px; padding: 5px 8px; border-radius: 8px; border: 1px solid var(--rule);
+           background: var(--surface); color: var(--ink); max-width: 260px; }
+  .step { font: inherit; width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--rule); cursor: pointer;
+          background: var(--surface); color: var(--ink-2); }
+  .ref-line { color: var(--ink-3); font-size: 13px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+  th, td { text-align: right; padding: 6px 10px; border-bottom: 1px solid var(--rule); font-variant-numeric: tabular-nums;
+           white-space: nowrap; }
+  th { color: var(--ink-3); font-weight: 500; }
+  th:first-child, td:first-child { text-align: left; color: var(--ink); }
+  tr.group td { text-align: left; color: var(--ink-3); font-size: 12.5px; padding-top: 14px; border-bottom: 1px solid var(--rule); }
+  .scroll { overflow-x: auto; }
+  .tagged { color: var(--ink-3); font-size: 12px; margin-left: 6px; }
+  details { margin-top: 12px; }
+  summary { cursor: pointer; color: var(--accent-ink); font-size: 13.5px; }
+  pre { background: var(--sunken); border: 1px solid var(--rule); border-radius: 8px; padding: 14px; overflow-x: auto;
+        font: 12.5px/1.5 ui-monospace, Consolas, "SF Mono", monospace; color: var(--ink-2); margin: 10px 0 0; }
+  footer { margin-top: 48px; color: var(--ink-3); font-size: 13px; }
+  @media (max-width: 560px) { h1 { font-size: 24px; } .card { padding: 16px 14px; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Population PK/PD models for S-ADAPT</h1>
+  <p class="lede">Six pharmacokinetic/pharmacodynamic models written for S-ADAPT with the SADAPT-TRAN pre-processor.
+  Each has a study simulated from known parameters and a population fit of that study by Monte Carlo parametric
+  expectation maximisation (MC-PEM), started from deliberately poor initial estimates. This page shows what came back.</p>
+  <div class="note"><strong>These fits were not made with S-ADAPT.</strong> S-ADAPT's licence does not allow it to be
+  redistributed, so the fits come from a reference MC-PEM written for the repository, which compiles the same model files.
+  Running the models in S-ADAPT itself is the next step; the
+  <a href="https://github.com/Wrlog/S-ADAPT/blob/main/docs/RUNNING_SADAPT.md">run guide</a> says how.</div>
+
+  <div class="tiles" id="overview-tiles"></div>
+
+  <section class="card">
+    <h2>How well the population means were recovered</h2>
+    <p class="sub">Each dot is one estimated population mean, divided by the typical value (geometric mean) of that
+    parameter in the subjects the data were simulated from. 1 is exact recovery.</p>
+    <div class="legend">
+      <span><i class="key-dot k-s1"></i>Estimate / value in the simulated subjects</span>
+      <span><i class="k-band"></i>0.8 to 1.25</span>
+    </div>
+    <div class="grid" id="recovery"></div>
+  </section>
+
+  <div class="filters" id="filters">
+    <div class="tabs" id="tabs" role="group" aria-label="Model"></div>
+    <div class="subject">
+      <label for="subject">Subject</label>
+      <button class="step" id="prev" aria-label="Previous subject">&#8249;</button>
+      <select id="subject"></select>
+      <button class="step" id="next" aria-label="Next subject">&#8250;</button>
+    </div>
+  </div>
+
+  <section>
+    <h2 id="model-title"></h2>
+    <p class="lede" id="model-summary" style="margin-bottom:4px"></p>
+    <p class="ref-line" id="model-source"></p>
+    <div class="tiles" id="model-tiles"></div>
+  </section>
+
+  <section class="card">
+    <h2>Individual fit</h2>
+    <p class="sub" id="fit-sub"></p>
+    <div class="legend">
+      <span><i class="key-dot k-ink"></i>Observation</span>
+      <span><i class="key-line k-s1"></i>Individual prediction</span>
+      <span><i class="key-line k-s2"></i>Population prediction</span>
+    </div>
+    <div class="grid" id="fits"></div>
+    <details><summary>Data for this subject</summary><div class="scroll" id="fit-table"></div></details>
+  </section>
+
+  <section class="card">
+    <h2>Observations against individual predictions</h2>
+    <p class="sub">Every observation of every subject. Points on the line are predicted exactly.</p>
+    <div class="legend">
+      <span><i class="key-dot k-s1"></i>All subjects</span>
+      <span><i class="key-dot k-ink"></i>Selected subject</span>
+    </div>
+    <div class="grid" id="gof"></div>
+  </section>
+
+  <section class="card">
+    <h2>Estimates</h2>
+    <p class="sub">What the data were simulated from, what the simulated subjects actually had, where the estimation
+    started, and where it ended. The last column compares the estimate with the simulated subjects, or with the
+    simulated value for the residual parameters. Variances are on the transformed scale (of the log, or of the logit).</p>
+    <div class="scroll" id="estimates"></div>
+  </section>
+
+  <section class="card">
+    <h2>Convergence</h2>
+    <p class="sub" id="conv-sub"></p>
+    <div class="legend">
+      <span><i class="key-line k-s1"></i>Population mean at each iteration</span>
+      <span><i class="key-line k-ref"></i>Typical value in the simulated subjects</span>
+      <span><i class="k-band"></i>Variances held up</span>
+    </div>
+    <div class="grid narrow" id="convergence"></div>
+  </section>
+
+  <section class="card" id="replicates-card">
+    <h2>The same study, simulated and fitted again</h2>
+    <p class="sub" id="rep-sub"></p>
+    <div class="legend">
+      <span><i class="key-dot k-s1"></i>One replicate: estimate / value in its simulated subjects</span>
+      <span><i class="k-band"></i>0.8 to 1.25</span>
+    </div>
+    <div class="chart" id="replicates" style="max-width:640px"></div>
+  </section>
+
+  <section class="card">
+    <h2>Model files</h2>
+    <p class="sub">The two files SADAPT-TRAN reads: the control stream, and the parameter and run settings.</p>
+    <details open><summary>final_model.ctl</summary><pre id="ctl"></pre></details>
+    <details><summary>parameter_settings.csv</summary><pre id="settings"></pre></details>
+  </section>
+
+  <footer>
+    <p>Source, datasets, results and tests: <a href="https://github.com/Wrlog/S-ADAPT">github.com/Wrlog/S-ADAPT</a>.
+    All data are simulated. For research and teaching only; nothing here is validated for clinical use.
+    <span id="generated"></span></p>
+  </footer>
+</main>
+<div id="tip" role="status"></div>
+
+<script src="data.js"></script>
+<script>
+(function () {
+  "use strict";
+  var DATA = window.DASHBOARD, NS = "http://www.w3.org/2000/svg";
+  var state = { model: 0, subject: 0 };
+  var tip = document.getElementById("tip");
+
+  // ---- small helpers -------------------------------------------------------
+  function arr(x) { return Array.isArray(x) ? x : x == null ? [] : [x]; }
+  function byId(id) { return document.getElementById(id); }
+  function node(tag, attrs, text) {
+    var e = document.createElement(tag);
+    for (var k in attrs || {}) e.setAttribute(k, attrs[k]);
+    if (text != null) e.textContent = text;
+    return e;
+  }
+  function svg(tag, attrs, parent, text) {
+    var e = document.createElementNS(NS, tag);
+    for (var k in attrs || {}) e.setAttribute(k, attrs[k]);
+    if (text != null) e.textContent = text;
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+  function fmt(v) {
+    if (v == null || !isFinite(v)) return "–";
+    var a = Math.abs(v);
+    if (a === 0) return "0";
+    if (a >= 1e6 || a < 1e-3) return v.toExponential(2).replace("e+", "e");
+    if (a >= 1000) return Math.round(v).toLocaleString("en-US");
+    return String(parseFloat(v.toPrecision(3)));
+  }
+  function pct(r) { return (r >= 0 ? "+" : "−") + Math.abs(100 * r).toFixed(1) + "%"; }
+
+  // ---- scales ----------------------------------------------------------------
+  function linTicks(lo, hi, n) {
+    var span = hi - lo || 1, step = Math.pow(10, Math.floor(Math.log10(span / n)));
+    var err = span / n / step;
+    step *= err >= 7.5 ? 10 : err >= 3.5 ? 5 : err >= 1.5 ? 2 : 1;
+    var out = [];
+    for (var v = Math.ceil(lo / step) * step; v <= hi + step * 1e-9; v += step) out.push(Math.abs(v) < step * 1e-9 ? 0 : v);
+    return out;
+  }
+  function logTicks(lo, hi) {
+    var a = Math.floor(Math.log10(lo)), b = Math.ceil(Math.log10(hi)), out = [];
+    var mult = b - a <= 2 ? [1, 2, 5] : b - a <= 4 ? [1, 3] : [1];
+    for (var d = a; d <= b; d += b - a > 8 ? 2 : 1) mult.forEach(function (m) {
+      var v = m * Math.pow(10, d);
+      if (v >= lo * 0.999 && v <= hi * 1.001) out.push(v);
+    });
+    return out;
+  }
+  function scale(lo, hi, r0, r1, log) {
+    var f = log ? Math.log10 : function (v) { return v; };
+    var a = f(lo), b = f(hi);
+    return function (v) { return r0 + (f(log ? Math.max(v, lo * 1e-6) : v) - a) / (b - a || 1) * (r1 - r0); };
+  }
+  function extent(lists, positive) {
+    var lo = Infinity, hi = -Infinity;
+    lists.forEach(function (l) { l.forEach(function (v) {
+      if (v == null || !isFinite(v) || (positive && v <= 0)) return;
+      if (v < lo) lo = v;
+      if (v > hi) hi = v;
+    }); });
+    return [lo, hi];
+  }
+
+  // ---- tooltip ---------------------------------------------------------------
+  function showTip(head, rows, x, y) {
+    tip.textContent = "";
+    tip.appendChild(node("div", { "class": "head" }, head));
+    rows.forEach(function (r) {
+      var row = node("div", { "class": "row" }), name = node("span", { "class": "name" });
+      if (r.key) name.appendChild(node("i", { "class": r.key }));
+      name.appendChild(document.createTextNode(r.name));
+      row.appendChild(name);
+      row.appendChild(node("strong", null, r.value));
+      tip.appendChild(row);
+    });
+    tip.style.display = "block";
+    var w = tip.offsetWidth, h = tip.offsetHeight;
+    var left = x + 14 + w > window.innerWidth ? x - 14 - w : x + 14;
+    tip.style.left = Math.max(6, left) + "px";
+    tip.style.top = Math.max(6, Math.min(y - h / 2, window.innerHeight - h - 6)) + "px";
+  }
+  function hideTip() { tip.style.display = "none"; }
+
+  // ---- the x-y chart ---------------------------------------------------------
+  // o.lines [{cls, key, name, x, y}], o.dots [{cls, key, name, x, y, faint, info}],
+  // o.hover "x" (crosshair on the nearest x) or "nearest" (the nearest dot)
+  function xyChart(host, o) {
+    host.textContent = "";
+    var W = Math.max(260, host.clientWidth || 320), H = o.height || 240;
+    var m = { l: 56, r: 12, t: 10, b: 40 };
+    var s = svg("svg", { viewBox: "0 0 " + W + " " + H, height: H, tabindex: 0, role: "img", "aria-label": o.label }, host);
+    var xs = [], ys = [];
+    (o.lines || []).concat(o.dots || []).forEach(function (d) { xs.push(d.x); ys.push(d.y); });
+    var dotY = (o.dots || []).map(function (d) { return d.y; }), dotX = (o.dots || []).map(function (d) { return d.x; });
+    var xd, yd;
+    if (o.identity) {
+      xd = yd = extent(xs.concat(ys), o.yLog);
+    } else {
+      xd = extent(xs, o.xLog);
+      yd = extent(ys, o.yLog);
+      // on a log axis a curve that starts near zero must not stretch the scale:
+      // follow the curves down to a twentieth of the lowest observation at most
+      if (o.yLog && dotY.length) yd[0] = Math.max(yd[0], extent(dotY, true)[0] / 20);
+    }
+    if (o.refs) o.refs.forEach(function (r) { yd = [Math.min(yd[0], r), Math.max(yd[1], r)]; });
+    function pad(d, log) {
+      if (log) return [d[0] / 1.6, d[1] * 1.6];
+      var p = (d[1] - d[0]) * 0.06 || Math.abs(d[1]) * 0.1 || 1;
+      return [d[0] - p, d[1] + p];
+    }
+    yd = pad(yd, o.yLog);
+    xd = o.identity ? yd : o.xLog ? pad(xd, true) : o.xPad ? pad(xd, false) : [xd[0], xd[1] + (xd[1] - xd[0]) * 0.02];
+    var X = scale(xd[0], xd[1], m.l, W - m.r, o.xLog || (o.identity && o.yLog));
+    var Y = scale(yd[0], yd[1], H - m.b, m.t, o.yLog);
+    var xl = o.xLog || (o.identity && o.yLog);
+    var xt = xl ? logTicks(xd[0], xd[1]) : linTicks(xd[0], xd[1], W < 360 ? 4 : 6);
+    var yt = o.yLog ? logTicks(yd[0], yd[1]) : linTicks(yd[0], yd[1], 5);
+    if (o.shade) svg("rect", { "class": "band", x: X(xd[0]), y: m.t, width: Math.max(0, X(o.shade) - X(xd[0])), height: H - m.b - m.t }, s);
+    yt.forEach(function (v) {
+      svg("line", { "class": "gridline", x1: m.l, x2: W - m.r, y1: Y(v), y2: Y(v) }, s);
+      svg("text", { x: m.l - 7, y: Y(v) + 4, "text-anchor": "end" }, s, fmt(v));
+    });
+    svg("line", { "class": "baseline", x1: m.l, x2: W - m.r, y1: H - m.b, y2: H - m.b }, s);
+    xt.forEach(function (v) { svg("text", { x: X(v), y: H - m.b + 15, "text-anchor": "middle" }, s, fmt(v)); });
+    svg("text", { "class": "axis-title", x: (m.l + W - m.r) / 2, y: H - 5, "text-anchor": "middle" }, s, o.xLabel);
+    if (o.yLabel) svg("text", { "class": "axis-title", x: 12, y: (m.t + H - m.b) / 2, "text-anchor": "middle",
+                                 transform: "rotate(-90 12 " + (m.t + H - m.b) / 2 + ")" }, s, o.yLabel);
+    var clip = "clip" + Math.random().toString(36).slice(2);
+    svg("rect", { x: m.l - 6, y: m.t - 6, width: W - m.l - m.r + 12, height: H - m.b - m.t + 12 }, svg("clipPath", { id: clip }, svg("defs", null, s)));
+    var plot = svg("g", { "clip-path": "url(#" + clip + ")" }, s);
+    if (o.identity) svg("line", { "class": "ref", x1: X(xd[0]), y1: Y(xd[0]), x2: X(xd[1]), y2: Y(xd[1]) }, plot);
+    (o.refs || []).forEach(function (r) { svg("line", { "class": "ref", x1: m.l, x2: W - m.r, y1: Y(r), y2: Y(r) }, plot); });
+    (o.lines || []).forEach(function (l) {
+      var d = "", pen = false;
+      l.x.forEach(function (x, i) {
+        var y = l.y[i];
+        if (y == null || !isFinite(y) || (o.yLog && y <= 0)) { pen = false; return; }
+        d += (pen ? "L" : "M") + X(x).toFixed(1) + " " + Y(y).toFixed(1);
+        pen = true;
+      });
+      svg("path", { "class": "line " + l.cls, d: d }, plot);
+    });
+    var pts = [];
+    (o.dots || []).forEach(function (g) {
+      g.x.forEach(function (x, i) {
+        if (g.y[i] == null || (o.yLog && g.y[i] <= 0)) return;
+        var c = svg("circle", { "class": "dot " + g.cls + (g.faint ? " faint" : ""), cx: X(x), cy: Y(g.y[i]), r: g.faint ? 3.2 : 4 }, plot);
+        pts.push({ px: X(x), py: Y(g.y[i]), x: x, y: g.y[i], g: g, i: i, el: c });
+      });
+    });
+    var cross = svg("line", { "class": "cross", y1: m.t, y2: H - m.b, visibility: "hidden" }, s);
+    var lift = svg("circle", { "class": "lift", r: 6.5, visibility: "hidden" }, s);
+    var marks = (o.lines || []).map(function (l) { return svg("circle", { "class": "dot d-" + l.cls, r: 4, visibility: "hidden" }, s); });
+    var anchors = [];
+    if (o.hover === "x") {
+      var src = dotX.length ? [].concat.apply([], dotX) : (o.lines[0] || { x: [] }).x;
+      anchors = src.filter(function (v, i, a) { return a.indexOf(v) === i; }).sort(function (a, b) { return a - b; });
+    }
+    var current = -1;
+    function clear() { cross.setAttribute("visibility", "hidden"); lift.setAttribute("visibility", "hidden");
+                       marks.forEach(function (c) { c.setAttribute("visibility", "hidden"); }); hideTip(); current = -1; }
+    function at(i, cx, cy) {
+      var rect = s.getBoundingClientRect(), k = rect.width / W;
+      current = i;
+      if (o.hover === "x") {
+        var x = anchors[i], rows = [];
+        cross.setAttribute("x1", X(x)); cross.setAttribute("x2", X(x)); cross.setAttribute("visibility", "visible");
+        (o.dots || []).forEach(function (g) { g.x.forEach(function (gx, j) {
+          if (gx === x) rows.push({ key: "key-dot k-ink", name: g.name, value: fmt(g.y[j]) });
+        }); });
+        (o.lines || []).forEach(function (l, li) {
+          var best = 0;
+          l.x.forEach(function (lx, j) { if (Math.abs(lx - x) < Math.abs(l.x[best] - x)) best = j; });
+          rows.push({ key: "key-line " + l.key, name: l.name, value: fmt(l.y[best]) });
+          var ok = l.y[best] != null && !(o.yLog && l.y[best] <= 0);
+          marks[li].setAttribute("cx", X(l.x[best])); marks[li].setAttribute("cy", ok ? Y(l.y[best]) : -99);
+          marks[li].setAttribute("visibility", ok ? "visible" : "hidden");
+        });
+        showTip(o.tipHead(x), rows, cx != null ? cx : rect.left + X(x) * k, cy != null ? cy : rect.top + (m.t + 30) * k);
+      } else {
+        var p = pts[i];
+        lift.setAttribute("cx", p.px); lift.setAttribute("cy", p.py); lift.setAttribute("visibility", "visible");
+        showTip(p.g.info(p.i).head, p.g.info(p.i).rows, cx != null ? cx : rect.left + p.px * k, cy != null ? cy : rect.top + p.py * k);
+      }
+    }
+    var hit = svg("rect", { "class": "hit", x: m.l - 8, y: m.t - 6, width: W - m.l - m.r + 16, height: H - m.b - m.t + 12 }, s);
+    hit.addEventListener("pointermove", function (ev) {
+      var rect = s.getBoundingClientRect(), k = W / rect.width, px = (ev.clientX - rect.left) * k, py = (ev.clientY - rect.top) * k;
+      var best = -1, bd = Infinity;
+      if (o.hover === "x") {
+        anchors.forEach(function (a, i) { var d = Math.abs(X(a) - px); if (d < bd) { bd = d; best = i; } });
+      } else {
+        pts.forEach(function (p, i) { var d = Math.hypot(p.px - px, p.py - py); if (d < bd) { bd = d; best = i; } });
+        if (bd > 30) best = -1;
+      }
+      if (best < 0) clear(); else at(best, ev.clientX, ev.clientY);
+    });
+    hit.addEventListener("pointerleave", clear);
+    s.addEventListener("keydown", function (ev) {
+      var n = o.hover === "x" ? anchors.length : pts.length;
+      if (!n) return;
+      if (ev.key === "ArrowRight" || ev.key === "ArrowLeft") {
+        ev.preventDefault();
+        at(Math.max(0, Math.min(n - 1, current + (ev.key === "ArrowRight" ? 1 : current < 0 ? 1 : -1))));
+      } else if (ev.key === "Escape") clear();
+    });
+    s.addEventListener("blur", clear);
+  }
+
+  // ---- the ratio chart: one row per parameter on a log axis around 1 -------------
+  function ratioChart(host, rows, jitter) {
+    host.textContent = "";
+    var W = Math.max(240, host.clientWidth || 300), rowH = jitter ? 46 : 24, left = 78, right = 12, top = 6;
+    var H = top + rows.length * rowH + 30;
+    var s = svg("svg", { viewBox: "0 0 " + W + " " + H, height: H, tabindex: 0, role: "img",
+                         "aria-label": "Estimates relative to the simulated subjects" }, host);
+    var X = scale(0.5, 2, left, W - right, true), base = top + rows.length * rowH;
+    svg("rect", { "class": "band", x: X(0.8), y: top, width: X(1.25) - X(0.8), height: base - top }, s);
+    [0.5, 2].forEach(function (v) { svg("line", { "class": "gridline", x1: X(v), x2: X(v), y1: top, y2: base }, s); });
+    svg("line", { "class": "ref", x1: X(1), x2: X(1), y1: top, y2: base }, s);
+    svg("line", { "class": "baseline", x1: left, x2: W - right, y1: base, y2: base }, s);
+    [0.5, 0.8, 1, 1.25, 2].forEach(function (v) { svg("text", { x: X(v), y: base + 15, "text-anchor": "middle" }, s, String(v)); });
+    var lift = svg("circle", { "class": "lift", r: 7.5, visibility: "hidden" }, s), targets = [];
+    rows.forEach(function (r, i) {
+      var cy = top + i * rowH + rowH / 2;
+      svg("text", { "class": "row-label", x: left - 10, y: cy + 4, "text-anchor": "end" }, s, r.parameter);
+      r.points.forEach(function (p, j) {
+        var px = X(Math.max(0.5, Math.min(2, p.ratio)));
+        var py = cy + (jitter ? ((j * 7) % 11 - 5) * 2.6 : 0);
+        svg("circle", { "class": "dot d-s1", cx: px, cy: py, r: jitter ? 4 : 5 }, s);
+        var h = svg("rect", { "class": "hit", x: jitter ? px - 12 : left, y: jitter ? py - 12 : cy - rowH / 2,
+                             width: jitter ? 24 : W - left - right, height: jitter ? 24 : rowH }, s);
+        var show = function (ev) {
+          var rect = s.getBoundingClientRect(), k = rect.width / W;
+          lift.setAttribute("cx", px); lift.setAttribute("cy", py); lift.setAttribute("visibility", "visible");
+          showTip(p.head, p.rows, ev && ev.clientX != null ? ev.clientX : rect.left + px * k, ev && ev.clientY != null ? ev.clientY : rect.top + py * k);
+        };
+        h.addEventListener("pointermove", show);
+        h.addEventListener("pointerleave", function () { lift.setAttribute("visibility", "hidden"); hideTip(); });
+        targets.push(show);
+      });
+    });
+    var cur = -1;
+    s.addEventListener("keydown", function (ev) {
+      if (ev.key === "ArrowDown" || ev.key === "ArrowRight" || ev.key === "ArrowUp" || ev.key === "ArrowLeft") {
+        ev.preventDefault();
+        var step = ev.key === "ArrowDown" || ev.key === "ArrowRight" ? 1 : -1;
+        cur = Math.max(0, Math.min(targets.length - 1, cur + step));
+        targets[cur]();
+      } else if (ev.key === "Escape") { lift.setAttribute("visibility", "hidden"); hideTip(); }
+    });
+    s.addEventListener("blur", function () { lift.setAttribute("visibility", "hidden"); hideTip(); cur = -1; });
+  }
+
+  // ---- sections --------------------------------------------------------------
+  function means(model) { return arr(model.estimates).filter(function (e) { return e.KIND === "mean"; }); }
+  function tiles(host, list) {
+    host.textContent = "";
+    list.forEach(function (t) {
+      var d = node("div", { "class": "tile" });
+      d.appendChild(node("div", { "class": "label" }, t[0]));
+      var v = node("div", { "class": "value" }, t[1]);
+      if (t[2]) { v.appendChild(document.createTextNode(" ")); v.appendChild(node("small", null, t[2])); }
+      d.appendChild(v);
+      host.appendChild(d);
+    });
+  }
+
+  function overview() {
+    var all = [], subjects = 0;
+    DATA.models.forEach(function (m) {
+      subjects += m.nsubjects;
+      means(m).forEach(function (e) { all.push(Math.abs(e.ESTIMATE / e.SAMPLE - 1)); });
+    });
+    var sorted = all.slice().sort(function (a, b) { return a - b; });
+    var inBand = DATA.models.reduce(function (n, m) {
+      return n + means(m).filter(function (e) { var r = e.ESTIMATE / e.SAMPLE; return r >= 0.8 && r <= 1.25; }).length;
+    }, 0);
+    tiles(byId("overview-tiles"), [
+      ["Models", String(DATA.models.length)],
+      ["Simulated subjects", String(subjects)],
+      ["Population means estimated", String(all.length)],
+      ["Within 0.8 to 1.25 of the subjects", inBand + " of " + all.length],
+      ["Median error", (100 * sorted[Math.floor(sorted.length / 2)]).toFixed(1) + "%"],
+      ["Largest error", (100 * sorted[sorted.length - 1]).toFixed(1) + "%"]
+    ]);
+    var host = byId("recovery");
+    host.textContent = "";
+    DATA.models.forEach(function (m, i) {
+      var p = node("div", { "class": "panel" });
+      p.appendChild(node("h3", null, m.title));
+      var b = node("button", { "class": "link" }, "Open this model");
+      b.addEventListener("click", function () { select(i, 0); byId("filters").scrollIntoView(); });
+      p.appendChild(b);
+      var c = node("div", { "class": "chart" });
+      p.appendChild(c);
+      host.appendChild(p);
+      m._recovery = c;
+    });
+    byId("generated").textContent = "Built " + DATA.generated + ".";
+  }
+  function drawRecovery() {
+    DATA.models.forEach(function (m) {
+      ratioChart(m._recovery, means(m).map(function (e) {
+        var r = e.ESTIMATE / e.SAMPLE;
+        return { parameter: e.PARAMETER, points: [{ ratio: r, head: e.PARAMETER, rows: [
+          { key: "key-dot k-s1", name: "Estimate", value: fmt(e.ESTIMATE) },
+          { name: "In the simulated subjects", value: fmt(e.SAMPLE) },
+          { name: "Simulated from", value: fmt(e.SIMULATED) },
+          { name: "Estimate / subjects", value: r.toFixed(3) }] }] };
+      }), false);
+    });
+  }
+
+  function drawModel() {
+    var m = DATA.models[state.model], subj = m.subjects[state.subject], jobs = [];
+    byId("model-title").textContent = m.title;
+    byId("model-summary").textContent = m.summary;
+    byId("model-source").textContent = "Source: " + m.source;
+    tiles(byId("model-tiles"), [["Subjects", String(m.nsubjects)], ["Observations", m.nobs.toLocaleString("en-US")],
+      ["Population means", String(means(m).length)], ["Iterations", String(m.niter)],
+      ["Outputs", String(arr(m.outputs).length)]]);
+
+    // individual fit
+    byId("fit-sub").textContent = "Subject " + subj.id + (subj.group ? " (" + subj.group + ")" : "") +
+      ". The individual prediction uses this subject's estimated parameters; the population prediction uses the population means.";
+    var fits = byId("fits"), rows = [];
+    fits.textContent = "";
+    arr(subj.outputs).forEach(function (out) {
+      var meta = m.outputs[out.k - 1], p = node("div", { "class": "panel" });
+      p.appendChild(node("h3", null, meta.label));
+      var c = node("div", { "class": "chart" });
+      p.appendChild(c);
+      fits.appendChild(p);
+      jobs.push([c, { label: meta.label + " against time", xLabel: "Time (" + m.time + ")", yLog: meta.log, hover: "x",
+        tipHead: function (x) { return fmt(x) + " " + m.time; },
+        lines: [{ cls: "s2", key: "k-s2", name: "Population prediction", x: subj.t, y: out.pred },
+                { cls: "s1", key: "k-s1", name: "Individual prediction", x: subj.t, y: out.ipred }],
+        dots: [{ cls: "d-ink", name: "Observation", x: arr(out.obs.t), y: arr(out.obs.dv) }] }]);
+      arr(out.obs.t).forEach(function (t, i) {
+        rows.push([meta.label, fmt(t), fmt(arr(out.obs.dv)[i]), fmt(arr(out.obs.ipred)[i]), fmt(arr(out.obs.pred)[i])]);
+      });
+    });
+    table(byId("fit-table"), ["Output", "Time (" + m.time + ")", "Observation", "Individual prediction", "Population prediction"], rows);
+
+    // observations against individual predictions
+    var gof = byId("gof");
+    gof.textContent = "";
+    arr(m.outputs).forEach(function (meta, k) {
+      var allX = [], allY = [], who = [], selX = [], selY = [];
+      m.subjects.forEach(function (sj, si) {
+        arr(sj.outputs).forEach(function (out) {
+          if (out.k !== k + 1) return;
+          arr(out.obs.ipred).forEach(function (v, i) {
+            if (si === state.subject) { selX.push(v); selY.push(arr(out.obs.dv)[i]); }
+            else { allX.push(v); allY.push(arr(out.obs.dv)[i]); who.push(sj.id); }
+          });
+        });
+      });
+      if (!allX.length && !selX.length) return;
+      var p = node("div", { "class": "panel" });
+      p.appendChild(node("h3", null, meta.label));
+      var c = node("div", { "class": "chart" });
+      p.appendChild(c);
+      gof.appendChild(p);
+      function info(xs, ys, ids) {
+        return function (i) { return { head: "Subject " + ids(i), rows: [{ name: "Observation", value: fmt(ys[i]) },
+                                                                       { name: "Individual prediction", value: fmt(xs[i]) }] }; };
+      }
+      jobs.push([c, { label: meta.label + ": observations against individual predictions", xLabel: "Individual prediction",
+        yLabel: "Observation", identity: true, yLog: meta.log, hover: "nearest", height: 260,
+        dots: [{ cls: "d-s1", faint: true, x: allX, y: allY, info: info(allX, allY, function (i) { return who[i]; }) },
+               { cls: "d-ink", x: selX, y: selY, info: info(selX, selY, function () { return subj.id; }) }] }]);
+    });
+
+    // estimates
+    var groups = [["mean", "Population means"], ["variance", "Between-subject variances"], ["residual", "Residual error"]];
+    var tr = { L: "log-normal", O: "logistic", N: "normal" }, body = [];
+    groups.forEach(function (g) {
+      body.push({ group: g[1] });
+      arr(m.estimates).filter(function (e) { return e.KIND === g[0]; }).forEach(function (e) {
+        var ref = e.SAMPLE != null ? e.SAMPLE : e.SIMULATED;
+        body.push([e.PARAMETER + (g[0] === "mean" && tr[e.TRANSFORM] ? "|" + tr[e.TRANSFORM] : ""), fmt(e.SIMULATED), fmt(e.SAMPLE),
+                   fmt(e.INITIAL), fmt(e.ESTIMATE), pct(e.ESTIMATE / ref - 1)]);
+      });
+    });
+    table(byId("estimates"), ["Parameter", "Simulated from", "In the simulated subjects", "Initial estimate", "Estimate",
+                              "Difference"], body);
+
+    // convergence
+    byId("conv-sub").textContent = "Each population mean over the " + m.niter + " iterations. For the first " + m.burn +
+      " the between-subject variances are held at a large value so the means can move; the estimates are the average of the last 10.";
+    var conv = byId("convergence");
+    conv.textContent = "";
+    arr(m.means).concat(["OBJ"]).forEach(function (name) {
+      var p = node("div", { "class": "panel" });
+      p.appendChild(node("h3", null, name === "OBJ" ? "Objective function" : name));
+      var c = node("div", { "class": "chart" });
+      p.appendChild(c);
+      conv.appendChild(p);
+      var e = means(m).filter(function (z) { return z.PARAMETER === name; })[0];
+      jobs.push([c, { label: name + " over the iterations", xLabel: "Iteration", hover: "x", height: 190, shade: m.burn,
+        refs: e ? [e.SAMPLE] : null, tipHead: function (x) { return "Iteration " + x; },
+        lines: [{ cls: "s1", key: "k-s1", name: name === "OBJ" ? "Objective function" : name, x: m.history.ITER, y: m.history[name] }] }]);
+    });
+
+    // replicates
+    var card = byId("replicates-card");
+    card.style.display = m.replicates ? "" : "none";
+    if (m.replicates) {
+      byId("rep-sub").textContent = "One dataset can land off the mark by chance. This study was simulated " + m.replicates.n +
+        " more times and each dataset fitted; estimates that scatter evenly around 1 mean the estimator is not biased.";
+      ratioChart(byId("replicates"), arr(m.replicates.rows).map(function (r) {
+        return { parameter: r.parameter, points: arr(r.ratio).map(function (v, i) {
+          return { ratio: v, head: r.parameter + ", replicate " + (i + 1), rows: [{ key: "key-dot k-s1", name: "Estimate / subjects", value: v.toFixed(3) }] };
+        }) };
+      }), true);
+    }
+    jobs.forEach(function (j) { xyChart(j[0], j[1]); });
+    byId("ctl").textContent = m.ctl;
+    byId("settings").textContent = m.settings;
+  }
+
+  function table(host, head, body) {
+    host.textContent = "";
+    var t = node("table"), hr = node("tr");
+    head.forEach(function (h) { hr.appendChild(node("th", null, h)); });
+    t.appendChild(hr);
+    body.forEach(function (r) {
+      var row = node("tr");
+      if (r.group) {
+        row.className = "group";
+        row.appendChild(node("td", { colspan: head.length }, r.group));
+      } else r.forEach(function (v, i) {
+        var td = node("td");
+        if (i === 0 && v.indexOf("|") > 0) {
+          td.appendChild(document.createTextNode(v.split("|")[0]));
+          td.appendChild(node("span", { "class": "tagged" }, v.split("|")[1]));
+        } else td.textContent = v;
+        row.appendChild(td);
+      });
+      t.appendChild(row);
+    });
+    host.appendChild(t);
+  }
+
+  // ---- controls --------------------------------------------------------------
+  function select(model, subject) {
+    state.model = model;
+    state.subject = subject;
+    var m = DATA.models[model], sel = byId("subject");
+    Array.prototype.forEach.call(byId("tabs").children, function (b, i) { b.setAttribute("aria-pressed", i === model ? "true" : "false"); });
+    sel.textContent = "";
+    m.subjects.forEach(function (s, i) { sel.appendChild(node("option", { value: i }, "Subject " + s.id + (s.group ? " · " + s.group : ""))); });
+    sel.value = String(subject);
+    // the address names the model and subject, so a view can be linked to
+    try { history.replaceState(null, "", "#" + m.name + "/" + m.subjects[subject].id); } catch (e) { /* file:// pages */ }
+    drawModel();
+  }
+  function fromAddress() {
+    var parts = decodeURIComponent(location.hash.slice(1)).split("/"), model = 0, subject = 0;
+    DATA.models.forEach(function (m, i) {
+      if (m.name !== parts[0]) return;
+      model = i;
+      m.subjects.forEach(function (sj, j) { if (String(sj.id) === parts[1]) subject = j; });
+    });
+    select(model, subject);
+  }
+  DATA.models.forEach(function (m, i) {
+    var b = node("button", { "aria-pressed": "false" }, m.tab);
+    b.addEventListener("click", function () { select(i, 0); });
+    byId("tabs").appendChild(b);
+  });
+  byId("subject").addEventListener("change", function () { select(state.model, Number(this.value)); });
+  function step(d) {
+    var n = DATA.models[state.model].subjects.length;
+    select(state.model, (state.subject + d + n) % n);
+  }
+  byId("prev").addEventListener("click", function () { step(-1); });
+  byId("next").addEventListener("click", function () { step(1); });
+
+  overview();
+  drawRecovery();
+  fromAddress();
+  window.addEventListener("hashchange", fromAddress);
+  var timer;
+  window.addEventListener("resize", function () {
+    clearTimeout(timer);
+    timer = setTimeout(function () { drawRecovery(); drawModel(); }, 150);
+  });
+})();
+</script>
+</body>
+</html>

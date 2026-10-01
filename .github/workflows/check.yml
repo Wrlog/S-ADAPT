@@ -1,8 +1,10 @@
-name: Check the models
+name: Check the models and deploy the dashboard
 
 # Checks every control stream the way SADAPT-TRAN's pre-processor does,
 # compiles each one with gfortran and compares it with an independent
 # mrgsolve model, and runs the reference MC-PEM briefly on the template.
+# Then builds the results dashboard from the committed results and
+# publishes it to GitHub Pages. If any test fails, nothing is deployed.
 # S-ADAPT itself is not run here: its licence does not allow it to be
 # redistributed.
 
@@ -14,9 +16,15 @@ on:
 
 permissions:
   contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  check:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -27,7 +35,7 @@ jobs:
           use-public-rspm: true
 
       - name: Install R packages
-        run: Rscript -e 'install.packages("mrgsolve")'
+        run: Rscript -e 'install.packages(c("mrgsolve", "jsonlite"))'
 
       - name: Run the tests
         run: |
@@ -36,3 +44,28 @@ jobs:
             Rscript "$t"
             echo "::endgroup::"
           done
+
+      - name: Build the dashboard
+        run: |
+          Rscript run/05_dashboard.R
+          test -f site/index.html
+          test -s site/data.js
+          du -sh site
+
+      - uses: actions/configure-pages@v5
+        if: github.event_name != 'pull_request'
+      - uses: actions/upload-pages-artifact@v3
+        if: github.event_name != 'pull_request'
+        with:
+          path: site
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

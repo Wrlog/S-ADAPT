@@ -16,6 +16,9 @@ here is from an analysis done that way: Hong, Mager, Blum and Jusko
 (*Pharm Res* 2007) fitted cortisol, lymphocyte trafficking and lymphocyte
 proliferation together in S-ADAPT.
 
+**Dashboard:** <https://wrlog.github.io/S-ADAPT/>. Parameter recovery for every
+model, each subject's fit, convergence, and the model files, in the browser.
+
 **What has and has not been run.** S-ADAPT is free, but its licence does not
 allow it to be redistributed and it needs a Fortran compiler, so it is not
 in this repository and the fits shown here were not made with it. They come
@@ -195,6 +198,7 @@ Rscript run/01_simulate.R         # simulate every dataset
 Rscript run/02_fit_reference.R    # fit them with the reference MC-PEM
 Rscript run/03_plots.R            # diagnostic plots
 Rscript run/04_replicates.R protac_kcat   # repeat one study 16 times
+Rscript run/05_dashboard.R        # build the dashboard into site/
 ```
 
 Each script takes model names as arguments to do only those. Tests, from
@@ -226,11 +230,13 @@ To run a model in S-ADAPT, see [docs/RUNNING_SADAPT.md](docs/RUNNING_SADAPT.md).
 - `engine/`: the reference engine (control-stream translator, LSODA driver,
   dataset simulator, MC-PEM)
 - `reference/`: the mrgsolve models the control streams are checked against
-- `run/`: the scripts that simulate, fit and plot
+- `run/`: the scripts that simulate, fit, plot and build the dashboard
+- `dashboard/`: the dashboard page; its data are gathered by `run/05_dashboard.R`
 - `results/reference/`: estimates, iteration histories, predictions and
   plots from the reference fits
 - `results/sadapt/`: for S-ADAPT's exported results
 - `tests/`: the checks, run on every push
+- `.github/workflows/check.yml`: tests, dashboard build and GitHub Pages deploy
 - `docs/`: how to run the models in S-ADAPT
 
 ## References
